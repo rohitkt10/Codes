@@ -10,10 +10,17 @@ AUTHOR: ROHIT TRIPATHY
 DATE: 10/05/2014
 
 The following program describes a function to draw a random sample
-from a multivariate normal distribution of dimensionality d.
+from a multivariate normal distribution of dimensionality d, and a
+function to compute the covariance matrix for an n vector according
+to the squared exponential kernel.
 
-Two examples are also provided - a sample drawn from a distribution
-of dimensionality d=2 and d=4
+Two examples are also provided for sampling of data - a sample
+drawn from a distribution of dimensionality d=2 and d=4.
+
+Then a sample space of 100 vector points is computed and its
+covariance function is computed according to the squared
+exponential kernel.
+A contour plot of the results are plotted.
 """
 
 #Define a function to check if a matrix is square or not.
@@ -53,8 +60,8 @@ def cholesky(a):
     PRECONDITIONS:
     
     1.The matrix A must be a square matrix.
-    2.The matrix A must be non singular i.e. it must have a non zero
-    determinant.
+    2.The matrix A must be hermitian i.e. the matrix and its conjugate
+    transpose must be equal.
     3. The matrix A must be positive definite i.e it should have all non-zero
     eigen values.
     """
@@ -62,9 +69,11 @@ def cholesky(a):
     #First assert that the input matrix is a square matrix
     assert is_square(a) == True
     
-    #Assert that the matrix is singular i.e. has non zero determinant
-    deter = np.linalg.det(a)
-    assert deter != 0
+    #Assert that the matrix is hermitian
+    conj_tr = a.copy()
+    conj_tr = np.mat(conj_tr)
+    conj = conj_tr.H
+    assert (conj == conj_tr).all()
     
     #Assert that the matrix is positive definite i.e. has all positive eigen
     #values
@@ -146,6 +155,21 @@ def sample_multi_norm(mu, sigma, d=2):
     #Return the randomly drawn sample from the multivariate distribution
     return x
 
+def se_cov_func(x, s, l):
+    """
+    This is a function that takes in an n-vector as input and computes the
+    covariance matrix K for each pair of input variables. The squared exponential
+    kernel is used and its variance and length scale is passed to the function
+    as parameters
+    """
+    n = len(x)
+    k = np.zeros(shape = (n, n))
+    for i in range(n):
+        for j in range(n):
+            arg = -(((x[i] - x[j]) * (x[i] - x[j])) / (2 * l * l))
+            k[i][j] = (s * s) * m.exp(arg)
+    return k
+
 if __name__ == '__main__':
     #A couple of examples
     #Sample drawm from a bivariate distribution
@@ -159,5 +183,23 @@ if __name__ == '__main__':
     mu = np.array([[2.5], [1.5], [2.5], [3.0]])
     cov = np.array([[0.5,  0, 0, 0], [0, 1.0, 0.0, 0.0], [0, 0, 1.3, 0], [0, 0, 0, 0.8]])
     x = sample_multi_norm(mu, cov, 4)
-    print "\nA sample drawn from a multivariate distribution with dimensionality 2:\n"
+    print "\nA sample drawn from a multivariate distribution with dimensionality 4:\n"
     print x
+    
+    #Drawing a sample from a distribution of d = 100
+    x = np.linspace(0, 100, 100)
+    x = np.mat(x)
+    x = x.transpose()
+    s = 0.50
+    l =1.5
+    k = se_cov_func(x, s, l)
+    mu = np.zeros(100)
+    mu = np.mat(mu)
+    mu = mu.transpose()
+    f = sample_multi_norm(mu, k, 100)
+    plt.plot(x, f, 'r-',label = '$l = 3.0,\ s = 1.5$')
+    plt.xlabel("x vector")
+    plt.ylabel("Random Samples")
+    plt.title("Sample Plot")
+    plt.legend(loc='upper center', shadow=True)
+    plt.show()
