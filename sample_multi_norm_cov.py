@@ -53,7 +53,7 @@ def is_positive_definite(a):
 
     
 #Define a function to compute the Cholesky Decomposition of a matrix
-def cholesky(a):
+def cholesky(a, l):
     """
     This is a function to perform the Cholesky Decomposition of a given
     matrix A. The function takes in a square matrix as input and returns
@@ -83,17 +83,18 @@ def cholesky(a):
     
     n = len(a)
     #Initialize a nXn matrix
-    l = np.zeros(shape=(n, n))
+    #l = np.zeros(shape=(n, n))
+    l[:] = 0.
     
     #Now compute the lower diagonal matrix for the Cholesky Decomposition
-    for k in range(n):
+    for k in xrange(n):
         if(k == 0):
             l[0][0] = m.sqrt(a[0][0])
-            for i in range(1, n):
+            for i in xrange(1, n):
                 l[i][0] = a[i][0] / l[0][0]
         elif(k != n-1):
             sum = 0.0
-            for j in range(k):
+            for j in xrange(k):
                 sum += (l[k][j] * l[k][j])
             l[k][k] = m.sqrt(a[k][k] - sum)
             for i in range(k+1, n):
@@ -128,28 +129,62 @@ def sample_multi_norm(mu, sigma, d=2):
     
     The argument d represents the dimensionality of the multivariate normal
     distribution. The default dimensionality is 2 i.e. bivariate.
-    """
     
-    n = len(sigma)
-    m = len(mu)
+    :param mu:  The mean of the multivariate normal.
+    :type mu:   :class:`numpy.ndarray`
+    :param sigma:  The covariance matrix.
+    :type sigma:   :class:`numpy.ndarray`
+    :returns:   A sample from the multivaraite normal.
+    :rtype:     :class:`numpy.ndarray`
+    
+    Example:
+    >>> x = sample_multi_norm(mu, sigma)
+    
+    Here is a list of a few things:
+        + One
+        + Two
+        
+    .. pre::
+        
+        These are the preconditions.
+        
+    .. warning::
+    
+        Here is a warning.
+        
+    .. note::
+    
+        Here is a note.
+        
+    The samples are taken using the cholesky of :math:`\Sigma`:
+    
+    .. math::
+    
+        \Sigma = L L^T.
+    """
+    sigma = np.array(sigma)
+    mu = np.array(mu)
     #Make necessary assertions about the covariance matrix
     assert is_square(sigma) == True
-    assert is_positive_definite(sigma) == True
-    assert n == d
-    assert m == n
+    #assert is_positive_definite(sigma) == True
+    assert sigma.shape[0] == sigma.shape[1]
+    assert sigma.shape[0] == mu.shape[0]
+    n = sigma.shape[0]
     
     #Initialize the l matrix
-    l = np.zeros(shape = (n,n))
+    #l = np.zeros(shape = (n,n))
+    l = np.ndarray((n, n))
     
     #Compute L matrix by performing Cholesky Decomposition of sigma
-    l = cholesky(sigma)
+    cholesky(sigma, l)
     
     #Define the multivariate standard normal vector
     z = np.zeros(d)
     for i in range(d):
         z[i] = np.random.normal(0, 1)
-    z = np.mat(z)
-    z = z.transpose()
+    z = z.reshape(mu.shape)
+    #z = np.mat(z)
+    #z = z.transpose()
     
     #Draw a sample from X
     x = np.dot(l, z) + mu
@@ -166,10 +201,11 @@ def se_cov_func(x, s, l):
     """
     n = len(x)
     k = np.zeros(shape = (n, n))
-    for i in range(n):
-        for j in range(n):
+    for i in xrange(n):
+        for j in xrange(i, n):
             arg = -(((x[i] - x[j]) * (x[i] - x[j])) / (2 * l * l))
-            k[i][j] = (s * s) * m.exp(arg)
+            k[i, j] = (s * s) * m.exp(arg)
+            k[j, i] = k[i, j]
     return k
 
 if __name__ == '__main__':
