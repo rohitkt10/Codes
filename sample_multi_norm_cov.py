@@ -244,4 +244,5 @@ if __name__ == '__main__':
     plt.ylabel("Random Samples")
     plt.title("Sample Plot")
     plt.text(30, 1.25, '5 samples with $l = 3.0,\ s = 1.5$', fontsize=15)
-    plt.show()
+    #plt.show()
+    plt.savefig('test1.png')
