@@ -230,7 +230,7 @@ if __name__ == '__main__':
     x = x.transpose()
     s = 0.50
     l = 20.
-    k = se_cov_func(x, s, l) + 1e-10 * np.eye(100)
+    k = se_cov_func(x, s, 100.) + 1e-10 * np.eye(100)
     mu = np.zeros(100)
     mu = np.mat(mu)
     mu = mu.transpose()
