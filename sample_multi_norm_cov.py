@@ -21,6 +21,8 @@ Then a sample space of 100 vector points is computed and its
 covariance function is computed according to the squared
 exponential kernel.
 A contour plot of the results are plotted.
+
+Different random samples are plotted for the same value of s & l.
 """
 
 #Define a function to check if a matrix is square or not.
@@ -196,10 +198,14 @@ if __name__ == '__main__':
     mu = np.zeros(100)
     mu = np.mat(mu)
     mu = mu.transpose()
-    f = sample_multi_norm(mu, k, 100)
-    plt.plot(x, f, 'r-',label = '$l = 3.0,\ s = 1.5$')
+    
+    #Plot 5 different random samples for the given value of s and l.
+    for i in range(5):
+        f = sample_multi_norm(mu, k, 100)
+        plt.plot(x, f)
+    plt.plot(label = '$l = 3.0,\ s = 1.5$')
     plt.xlabel("x vector")
     plt.ylabel("Random Samples")
     plt.title("Sample Plot")
-    plt.legend(loc='upper center', shadow=True)
+    plt.text(30, 1.25, '5 samples with $l = 3.0,\ s = 1.5$', fontsize=15)
     plt.show()
