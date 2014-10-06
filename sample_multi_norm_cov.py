@@ -229,8 +229,8 @@ if __name__ == '__main__':
     x = np.mat(x)
     x = x.transpose()
     s = 0.50
-    l =1.5
-    k = se_cov_func(x, s, l)
+    l = 20.
+    k = se_cov_func(x, s, l) + 1e-10 * np.eye(100)
     mu = np.zeros(100)
     mu = np.mat(mu)
     mu = mu.transpose()
@@ -238,7 +238,7 @@ if __name__ == '__main__':
     #Plot 5 different random samples for the given value of s and l.
     for i in range(5):
         f = sample_multi_norm(mu, k, 100)
-        plt.plot(x, f)
+        plt.plot(x, f, 'r')
     plt.plot(label = '$l = 3.0,\ s = 1.5$')
     plt.xlabel("x vector")
     plt.ylabel("Random Samples")
