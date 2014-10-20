@@ -45,7 +45,7 @@ def se_cov_func(x1, x2, s, l):
     k = (s ** 2) * math.exp(- r_mod / (2 * l * l))
     return k
 
-def cov_matrix(x, y):
+def cov_matrix(X):
     """
     This function takes in 2 arrays and computes the covariance matrix using the
     squared exponential kernel
@@ -60,21 +60,17 @@ def cov_matrix(x, y):
     k
     type : ndarray
     """
-    x = x.flatten()
-    y = y.flatten()
-    n = len(x)
-    x = np.mat(x)
-    y = np.mat(y)
-    x = np.transpose(x)
-    y = np.transpose(y)
-    p = np.hstack((x, y))
-    k = np.zeros(shape = (n, n))
-    count = 0
+    n = X.shape[0]
+    K = np.zeros((n, n))
     for i in xrange(n):
-        for j in xrange(n):
-            k[j, i] = se_cov_func(p[i, :], p[j, :], 0.5, 100)
-    return k
-def sample_random_field(x1, y1):
+        for j in xrange(i, n):
+            K[j, i] = se_cov_func(X[i, :], X[j, :], 1., 0.06)
+            K[i, j] = K[j, i]
+    return K
+
+
+
+def sample_random_field(X1, X2):
     """
     This function generates a realisation of a Gaussian Random field in two
     dimensions.
@@ -89,35 +85,40 @@ def sample_random_field(x1, y1):
     z
     type : ndrray
     """
-    n = len(x1)
-    k = cov_matrix(x1, y1)
-    z = np.zeros( shape = (n, n))
-    for i in xrange(n):
-        for j in xrange(n):
-            z[i, j] = np.random.normal(0, k[i, j])
-    return z
+    X = np.hstack([X1.flatten()[:, None], X2.flatten()[:, None]])
+    n = X.shape[0]
+    K = cov_matrix(X) + 1e-2
+    import scipy.linalg
+    w, V = scipy.linalg.eigh(K)
+    I = np.argsort(w)[::-1]
+    for i in xrange(10):
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.plot_surface(X1, X2, V[:, I[i]].reshape(X1.shape),
+                rstride = 1, cstride = 1, alpha = 0.4,cmap = plt.cm.jet)
+        plt.xlabel('$X_1$')
+        plt.ylabel('$X_2$')
+        plt.savefig('eig_' + str(i).zfill(2) + '.png')
+        plt.clf()
+    quit()
+    L = np.linalg.cholesky(K)
+    z = np.random.randn(n, 1)
+    y = np.dot(L, z)
+    return y.reshape(X1.shape)
     
     
     
 if __name__ == '__main__':
-    x1 = np.linspace(0, 1, 30)
-    x2 = np.linspace(0, 1, 30)
-    x, y = np.meshgrid(x1, x2)
-    z = np.zeros(shape = (10, 10))
-    z = sample_random_field(x1, x2)
-    """
-    #compute the covariance matrix
-    for i in xrange(32):
-        for j xrange(32):
-            p1 = [[x[i, j], y[i, j]]]
-            p2 = 
-            cov = cov_matrix([x[i, j], y[i, j]])
-    cov = cov_matrix()
-    """
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
-    ax.plot_surface(x, y, z, rstride = 1, cstride = 1, alpha = 0.4,cmap = plt.cm.jet)
-    plt.xlabel("X")
-    plt.ylabel("Y")
-    plt.show()
+    x1 = np.linspace(0, 1, 32)
+    x2 = np.linspace(0, 1, 32)
+    X1, X2 = np.meshgrid(x1, x2)
+    for i in xrange(10):
+        Y = sample_random_field(X1, X2)
+        fig = plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.plot_surface(X1, X2, Y, rstride = 1, cstride = 1, alpha = 0.4,cmap = plt.cm.jet)
+        plt.xlabel("X")
+        plt.ylabel("Y")
+        plt.savefig('sample_2d_' + str(i).zfill(2) + '.png')
+        plt.clf()
     
