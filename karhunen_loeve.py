@@ -16,7 +16,64 @@ import matplotlib.pyplot as plt
 from scipy import linalg
 from mpl_toolkits.mplot3d import Axes3D
 
-class Karhunen_Loeve:
+
+class Covariance(object):
+
+    def __init__(self, num_dim):
+        """
+        num_dim
+        """
+        self.num_dim = num_dim
+
+    def __call__(self, X1, X2=None):
+        """
+        Return covariance matrix.
+        """
+        if X2 is None:
+            X2 = X1
+        K = np.zeros((X1.shape[0], X2.shape[0]))
+        for i in xrange(X1.shape[0]):
+            for j in xrange(X2.shape[0]):
+                K[i, j] = self.cov_func(X1[i, :], X2[j, :])
+        return K
+
+    def cov_func(self, x1, x2):
+        """
+        Return cov.
+        """
+        raise NotImplementedError('Implement me!')
+
+
+class SECovariance(Covariance):
+
+    def __init__(self, num_dim, s=1., ell=0.1):
+        super(SECovariance, self).__init__(num_dim)
+        self.s = s
+        self.ell = ell
+
+    def cov_func(self, x1, x2):
+        r = x2 - x1
+        r_mod = r[0] ** 2 + r[1] ** 2
+        k = (self.s ** 2) * math.exp(- r_mod / (2 * self.ell ** 2))
+        return k
+
+
+class ExpCovariance(Covariance):
+
+    def __init__(self, num_dim, s=1., ell=0.1):
+        #super(ExpCovariance, self).__init__(num_dim)
+        Covariance.__init__(self, num_dim)
+        self.s = s
+        self.ell = ell
+
+    def cov_func(self, x1, x2):
+        r = x2 - x1
+        r_mod = np.sum(np.abs(r))
+        k = (self.s ** 2) * math.exp(- r_mod / (self.ell))
+        return k
+
+
+class Karhunen_Loeve(object):
     """
     This a class which defines methods to represent a 2-D
     Gaussian by means of a Karhunen- Loeve expansion.
@@ -48,7 +105,7 @@ class Karhunen_Loeve:
     V = None
     kl = None
     
-    def __init__(self, x1, y1, s1, l1):
+    def __init__(self, x1, y1, s1, l1, num_xi=0.99, cov_func=SECovariance(2)):
         """
         Initialize an instance of the Karhunen_Loeve class.
         
@@ -58,84 +115,70 @@ class Karhunen_Loeve:
         s1 :: type : float
         l1 :: type : float
         """
+        self.cov_func = cov_func
+        self.num_xi = num_xi
         self.x = np.linspace(0, 1, x1)
         self.y = np.linspace(0, 1, y1)
         self.X, self.Y = np.meshgrid(self.x, self.y)
-        self.X = self.X.flatten()
-        self.Y = self.Y.flatten()
         self.s = s1
         self.l = l1
         self.K = np.zeros(shape = (x1 * y1, x1 * y1))
-        self.points = np.zeros(shape = (x1 * y1, 2))
-        self.points[:, 0] = self.X
-        self.points[:, 1] = self.Y
-        self.Lambda = np.zeros(x1 * y1)
-        self.V = np.zeros(shape = (x1 * y1, x1 * y1))
-        self.kl = np.zeros(len(self.Lambda))
-        self.cov_matrix()
+        self.points = np.hstack([self.X.flatten()[:, None,], self.Y.flatten()[:, None]])
+        self.K = self.cov_func(self.points)
         self.eigen_decomposition()
-        self.kl_expansion()
-
-    def se_cov_func(self, x1, x2):
-        """
-        Define the squared exponential kernel.
-        
-        Params:
-        x1 :: type : ndarray
-        x2 :: type : ndarray
-        
-        Returns:
-        k  :: type : float
-        """
-        r = x2 - x1
-        r_mod = r[0] ** 2 + r[1] ** 2
-        k = (self.s ** 2) * math.exp(- r_mod / (2 * self.l * self.l))
-        return k
-    
-    def cov_matrix(self):
-        """
-        Generate the covariance matrix.
-        """
-        for i in xrange(len(self.x) * len(self.y)):
-            for j in xrange(i, len(self.x) * len(self.y)):
-                self.K[i, j] = self.se_cov_func(self.points[i, :], self.points[j, :])
-                self.K[j, i] = self.K[i, j]
     
     def eigen_decomposition(self):
         """
         Generate the Eigen Values and Eigen Vectors of
         the Covariance Matrix.
         """
-        self.Lambda, self.V = linalg.eigh(self.K)
-    
-    def kl_expansion(self):
-        """
-        Use Karhunen Loeve Expansion to represent the Random field.
-        The Gaussian field is assumed to be centered i.e.
-        $\mu$ = 0
-        """
-        z = np.zeros(shape = (1, len(self.points)))
-        z = np.random.randn(1, len(self.points))
-        self.kl = np.zeros(len(self.points))
-        sqrt_Lambda = np.sqrt(self.Lambda)
-        for i in xrange(len(self.Lambda)):
-            self.kl[i] = np.dot(z, sqrt_Lambda[i] * self.V[:, i])
+        w, V = linalg.eigh(self.K)
+        c = w[::-1]
+        if isinstance(self.num_xi, float):
+            percent_energy = np.cumsum(c) /  np.sum(c)
+            self.num_xi = np.arange(c.shape[0])[percent_energy < self.num_xi][-1] # num_xi changes
+        self.Lambda = w[::-1][:self.num_xi]
+        self.V = V[:, ::-1][:, :self.num_xi]
 
-    def visualize(self):
+    def __call__(self, xi):
+        """
+        Evaluate the KLE at ``xi``.
+        """
+        assert xi.shape[0] <= self.Lambda.shape[0]
+        r = xi.shape[0]
+        num_xi = xi.shape[0]
+        sqrt_lambda = np.sqrt(self.Lambda[:num_xi])
+        Phi = self.V[:, :num_xi]
+        return np.dot(Phi, xi * sqrt_lambda)
+
+    def sample(self):
+        """
+        Samples from the random field defined by the KLE.
+        """
+        return self(np.random.randn(self.num_xi)).reshape(self.X.shape)
+
+    def sample_and_plot(self):
         """
         Generate surface plots for the Random field.
         """
-        self.X = np.reshape(self.X, (len(self.x), len(self.y)))
-        self.Y = np.reshape(self.Y, (len(self.x), len(self.y)))
-        self.kl = np.reshape(self.kl, (len(self.x), len(self.y)))
         fig = plt.figure()
         ax = plt.axes(projection = '3d')
-        ax.plot_surface(self.X, self.Y, self.kl, cmap = plt.cm.jet, rstride = 2, cstride = 2, linewidth = 1)
+        ax.plot_surface(self.X, self.Y, self.sample(), cmap = plt.cm.jet, rstride = 2, cstride = 2, linewidth = 1)
+        plt.show()
+
+    def visualize_eigenfunction(self, i):
+        """
+        Visualizes eigenfunction i.
+        """
+        phi_i = self.V[:, i].reshape(self.X.shape)
+        ax = plt.axes(projection = '3d')
+        ax.plot_surface(self.X, self.Y, phi_i, cmap = plt.cm.jet, rstride = 2, cstride = 2, linewidth = 1)
         plt.show()
         
 
 if __name__=='__main__':
     
     #define an instance of the Karhunen_Loeve class.
-    k1 = Karhunen_Loeve(32, 32, 3., 0.06)
-    k1.visualize()
+    k1 = Karhunen_Loeve(32, 32, 3., 0.1, cov_func=ExpCovariance(2))
+    for i in xrange(10):
+        k1.sample_and_plot()
